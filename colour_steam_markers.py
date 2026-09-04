@@ -1,69 +1,127 @@
 # colour_steam_markers.py
-# Run from DaVinci Resolve: Workspace > Scripts, or paste into the console.
-#
-# Finds every marker (on timeline items and the timeline itself) whose name
-# starts with MARKER_PREFIX and changes its colour to TARGET_COLOR.
-# Marker content (name, note, duration) is preserved.
+# Workspace > Scripts > Utility > ColorSteamMarkers
 
-# ── config ────────────────────────────────────────────────────────────────────
+COLORS = [
+    "Blue", "Cyan", "Green", "Yellow", "Red", "Pink", "Purple",
+    "Fuchsia", "Rose", "Lavender", "Sky", "Mint", "Lemon", "Sand", "Cocoa", "Cream",
+]
 
-MARKER_PREFIX = "🏆 "
+DEFAULT_PREFIX = "🏆 "
+DEFAULT_COLOR  = "Yellow"
 
-# Valid colours: Blue, Cyan, Green, Yellow, Red, Pink, Purple, Fuchsia,
-#                Rose, Lavender, Sky, Mint, Lemon, Sand, Cocoa, Cream
-TARGET_COLOR = "Yellow"
+# ── resolve / ui bootstrap ────────────────────────────────────────────────────
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+resolve  = bmd.scriptapp("Resolve")
+project  = resolve.GetProjectManager().GetCurrentProject()
+timeline = project.GetCurrentTimeline()
+fusion   = resolve.Fusion()
+ui       = fusion.UIManager
+disp     = bmd.UIDispatcher(ui)
 
-def recolour_markers(obj, label):
+# ── ui ────────────────────────────────────────────────────────────────────────
+
+win = disp.AddWindow({
+    "ID":          "CSMWin",
+    "WindowTitle": "Colour Steam Markers",
+    "Geometry":    [200, 200, 380, 220],
+}, [
+    ui.VGroup({"Spacing": 8}, [
+        ui.HGroup({"Weight": 0}, [
+            ui.Label({"Text": "Marker prefix:", "Weight": 0.4}),
+            ui.LineEdit({"ID": "Prefix", "Text": DEFAULT_PREFIX, "Weight": 0.6}),
+        ]),
+        ui.HGroup({"Weight": 0}, [
+            ui.Label({"Text": "Change colour to:", "Weight": 0.4}),
+            ui.ComboBox({"ID": "Color", "Weight": 0.6}),
+        ]),
+        ui.CheckBox({
+            "ID":      "RemoveAudio",
+            "Text":    "Remove all markers from audio tracks",
+            "Checked": False,
+            "Weight":  0,
+        }),
+        ui.VGap(4),
+        ui.HGroup({"Weight": 0}, [
+            ui.Button({"ID": "BtnRun",    "Text": "Run",    "Weight": 1}),
+            ui.Button({"ID": "BtnCancel", "Text": "Cancel", "Weight": 1}),
+        ]),
+        ui.Label({"ID": "Status", "Text": "", "Weight": 1, "WordWrap": True}),
+    ]),
+])
+
+itm = win.GetItems()
+for c in COLORS:
+    itm["Color"].AddItem(c)
+itm["Color"].CurrentIndex = COLORS.index(DEFAULT_COLOR)
+
+# ── logic ─────────────────────────────────────────────────────────────────────
+
+def recolour_markers(obj, prefix, color):
     markers = obj.GetMarkers()
     if not markers:
         return 0
-
     changed = 0
     for frame_id, info in markers.items():
-        if not info["name"].startswith(MARKER_PREFIX):
+        if not info["name"].startswith(prefix):
             continue
-        if info["color"] == TARGET_COLOR:
+        if info["color"] == color:
             continue
-
         obj.DeleteMarkerAtFrame(frame_id)
-        obj.AddMarker(
-            frame_id,
-            TARGET_COLOR,
-            info["name"],
-            info["note"],
-            info["duration"],
-            info.get("customData", ""),
-        )
-        print(f"  [{label}] frame {frame_id}: '{info['name']}' → {TARGET_COLOR}")
+        obj.AddMarker(frame_id, color, info["name"], info["note"],
+                      info["duration"], info.get("customData", ""))
         changed += 1
-
     return changed
 
-# ── main ──────────────────────────────────────────────────────────────────────
 
-resolve = bmd.scriptapp("Resolve")  # bmd is a DaVinci built-in when running from Scripts menu
-project = resolve.GetProjectManager().GetCurrentProject()
-timeline = project.GetCurrentTimeline()
-
-print(f"Timeline: {timeline.GetName()}")
-print(f"Prefix:   '{MARKER_PREFIX}'")
-print(f"Colour:   {TARGET_COLOR}")
-print()
-
-total = 0
-
-# Timeline-level markers (in case any ended up here)
-total += recolour_markers(timeline, "timeline")
-
-# Clip-level markers across all tracks
-for track_type, prefix in (("video", "V"), ("audio", "A")):
-    for track_idx in range(1, timeline.GetTrackCount(track_type) + 1):
-        items = timeline.GetItemListInTrack(track_type, track_idx)
-        for item in (items or []):
-            total += recolour_markers(item, f"{prefix}{track_idx} '{item.GetName()}'")
+def remove_audio_markers(tl):
+    removed = 0
+    for track_idx in range(1, tl.GetTrackCount("audio") + 1):
+        for item in (tl.GetItemListInTrack("audio", track_idx) or []):
+            markers = item.GetMarkers()
+            for frame_id in list(markers.keys()):
+                item.DeleteMarkerAtFrame(frame_id)
+                removed += 1
+    return removed
 
 
-print()
-print(f"Done — {total} marker(s) recoloured.")
+def run(prefix, color, strip_audio):
+    total   = 0
+    removed = 0
+
+    total += recolour_markers(timeline, prefix, color)
+
+    for track_type in ("video", "audio"):
+        for track_idx in range(1, timeline.GetTrackCount(track_type) + 1):
+            for item in (timeline.GetItemListInTrack(track_type, track_idx) or []):
+                total += recolour_markers(item, prefix, color)
+
+    if strip_audio:
+        removed = remove_audio_markers(timeline)
+
+    parts = [f"{total} marker(s) recoloured."]
+    if strip_audio:
+        parts.append(f"{removed} audio marker(s) removed.")
+    return "  ".join(parts)
+
+# ── events ────────────────────────────────────────────────────────────────────
+
+def on_run(ev):
+    prefix      = itm["Prefix"].Text
+    color       = COLORS[itm["Color"].CurrentIndex]
+    strip_audio = itm["RemoveAudio"].Checked
+    try:
+        msg = run(prefix, color, strip_audio)
+        itm["Status"].Text = msg
+    except Exception as e:
+        itm["Status"].Text = f"Error: {e}"
+
+def on_cancel(ev):
+    disp.ExitLoop()
+
+win.On.CSMWin.Close    = lambda ev: disp.ExitLoop()
+win.On.BtnRun.Clicked  = on_run
+win.On.BtnCancel.Clicked = on_cancel
+
+win.Show()
+disp.RunLoop()
+win.Hide()
