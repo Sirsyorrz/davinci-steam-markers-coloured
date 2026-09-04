@@ -1,6 +1,6 @@
 # davinci-steam-markers-coloured
 
-DaVinci Resolve script that recolours timeline markers by name prefix. Pairs with [obs-steam-achievement](https://github.com/sirs/obs-steam-achievement-marker) which writes chapter markers to recordings when Steam achievements unlock.
+DaVinci Resolve script that recolours timeline markers by name prefix. Pairs with [obs-steam-achievement](https://github.com/sirsyorrz/obs-steam-achievement-marker) which writes chapter markers to recordings when Steam achievements unlock.
 
 ## Setup
 
