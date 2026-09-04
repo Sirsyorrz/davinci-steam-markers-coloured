@@ -1,20 +1,28 @@
 # davinci-steam-markers-coloured
 
-DaVinci Resolve script that recolours timeline markers by name prefix. Pairs with [obs-steam-achievement](https://github.com/sirsyorrz/obs-steam-achievement-marker) which writes chapter markers to recordings when Steam achievements unlock.
+DaVinci Resolve script that finds markers by name prefix and recolours them. Designed to work with [obs-steam-achievement](https://github.com/Sirsyorrz/obs-steam-achievement-marker) which writes chapter markers to recordings on Steam achievement unlocks.
 
-## Setup
+## Install
 
 Copy `colour_steam_markers.py` to:
+
+**Linux**
 ```
-/DaVinciResolve/Fusion/Scripts/
+~/.local/share/DaVinciResolve/Fusion/Scripts/Utility/
+```
+
+**Windows**
+```
+%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\
+```
+
+**macOS**
+```
+~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/
 ```
 
 ## Usage
 
-1. Edit the two config values at the top of the script:
-   - `MARKER_PREFIX` — prefix to match (default: `🏆 `)
-   - `TARGET_COLOR` — colour to apply (default: `Yellow`)
-2. Open your recording in DaVinci Resolve
-3. Run via **Workspace → Scripts → colour_steam_markers**
+Run via **Workspace → Scripts → Utility → colour_steam_markers**.
 
-Valid colours: `Blue`, `Cyan`, `Green`, `Yellow`, `Red`, `Pink`, `Purple`, `Fuchsia`, `Rose`, `Lavender`, `Sky`, `Mint`, `Lemon`, `Sand`, `Cocoa`, `Cream`
+A dialog will open where you can set the marker prefix, pick a colour, and optionally strip all markers off audio tracks before hitting Run.
